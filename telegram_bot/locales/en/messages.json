@@ -1,0 +1,23 @@
+{
+  "welcome_message": "👋 Welcome to ChatGpt Claude Mistral Bot!\n\nThis bot allows you to chat with multiple AI models including OpenAI's ChatGPT, Anthropic's Claude, and Mistral AI.\n\nYou can also generate images using AI.\n\nUse /help to see available commands.",
+  "help_message": "📚 **Available Commands**\n\n/start - Start the bot\n/help - Show this help message\n/settings - Configure bot settings\n/balance - Check your token balance\n/models - Select AI model\n/language - Change language\n/subscribe - Purchase tokens\n\nTo chat with AI, simply send a message.\nTo generate an image, start your message with '/image' followed by your description.",
+  "settings_message": "⚙️ **Settings**\n\nHere you can configure your bot settings.",
+  "balance_message": "💰 **Token Balance**\n\nYou have %{tokens} tokens remaining.\n\nTokens are used for AI chat and image generation. You can purchase more tokens using the Subscribe button below.",
+  "models_message": "🤖 **AI Models**\n\nYour current model: %{model}\n\nSelect an AI model to chat with:",
+  "language_message": "🌐 **Language**\n\nSelect your preferred language:",
+  "subscription_options": "💳 **Subscription Options**\n\nPurchase tokens to continue using the bot. Select a package below:",
+  "tokens": "tokens",
+  "no_tokens": "❌ You don't have enough tokens. Please purchase more tokens to continue using the bot.",
+  "rate_limit_exceeded": "⚠️ You are sending too many requests. Please wait a moment before trying again.",
+  "error_processing": "❌ Sorry, I encountered an error while processing your request. Please try again later.",
+  "model_changed": "✅ Your AI model has been changed to %{model}.",
+  "language_changed": "✅ Your language has been changed to English.",
+  "not_authorized": "❌ You are not authorized to perform this action.",
+  "models_button": "🤖 AI Models",
+  "settings_button": "⚙️ Settings",
+  "balance_button": "💰 Balance",
+  "language_button": "🌐 Language",
+  "model_button": "🤖 Model",
+  "back_button": "⬅️ Back",
+  "subscribe_button": "💳 Subscribe"
+}
