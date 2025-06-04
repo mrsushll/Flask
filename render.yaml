@@ -3,7 +3,7 @@ services:
     name: chatgpt-claude-mistral-bot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app
+    startCommand: gunicorn your_application.wsgi:app
     envVars:
       - key: TELEGRAM_API_ID
         sync: false
