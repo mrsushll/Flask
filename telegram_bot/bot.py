@@ -100,6 +100,14 @@ class TelegramBot:
         # Register event handlers
         self.register_handlers()
         
+        # Set webhook if URL is provided
+        webhook_url = os.environ.get('WEBHOOK_URL')
+        if webhook_url:
+            logger.info(f"Setting webhook to {webhook_url}")
+            # Note: Telethon doesn't have built-in webhook support
+            # This is a placeholder for webhook configuration
+            # You would need to implement a webhook handler or use the Telegram Bot API directly
+        
         logger.info("Bot started successfully!")
         
         # Start background tasks
