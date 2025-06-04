@@ -870,22 +870,7 @@ async def main():
     await bot.start()
 
 if __name__ == "__main__":
-    asyncio.run(main())        async def process_update(self, update_data):
-            """Process an update from the webhook.
-            
-            Args:
-                update_data: The update data from Telegram
-            """
-            try:
-                # Process the update using Telethon's event system
-                # This is a simplified implementation and may need to be expanded
-                # based on the types of updates you want to handle
-                
-                if 'message' in update_data:
-                    # Handle message updates
-                    message_data = update_data['message']
-                    chat_id = message_data.get('chat', {}).get('id')
-                    text = message_data.get('text', '')
+    asyncio.run(main())
                     
                     if text.startswith('/'):
                         # Handle commands

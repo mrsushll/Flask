@@ -1,1 +1,1 @@
-web: cd telegram_bot && python bot.py
+web: gunicorn wsgi:app

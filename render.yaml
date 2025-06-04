@@ -2,8 +2,8 @@ services:
   - type: web
     name: chatgpt-claude-mistral-bot
     env: python
-    buildCommand: pip install -r telegram_bot/requirements.txt
-    startCommand: cd telegram_bot && python bot.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app
     envVars:
       - key: TELEGRAM_API_ID
         sync: false
