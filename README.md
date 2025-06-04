@@ -203,6 +203,10 @@ You can also deploy the bot manually on any server:
 
 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
+### Webhook Support
+
+This bot supports webhook-based updates for improved performance on platforms like Render. The webhook handler allows the bot to receive updates directly from Telegram's servers, reducing latency and improving reliability. See the deployment documentation for configuration details.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
