@@ -31,6 +31,69 @@ def health_check():
 def home():
     return 'Telegram Bot Service is running', 200
 
+@app.route('/set_webhook', methods=['GET'])
+def set_webhook():
+    try:
+        if bot_instance:
+            # Get the webhook URL from environment
+            webhook_url = os.environ.get('WEBHOOK_URL', 'https://flask-53nr.onrender.com/')
+            if not webhook_url.endswith('/'):
+                webhook_url += '/'
+            webhook_url += 'webhook'
+            
+            # Create a task to set the webhook
+            asyncio.run_coroutine_threadsafe(
+                bot_instance.client.send_request('setWebhook', {
+                    'url': webhook_url,
+                    'max_connections': 100,
+                    'allowed_updates': ['message', 'callback_query', 'inline_query']
+                }),
+                bot_instance.client.loop
+            )
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Webhook set to {webhook_url}'
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Bot not initialized'
+            }), 500
+    except Exception as e:
+        logger.error(f"Error setting webhook: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@app.route('/webhook_info', methods=['GET'])
+def webhook_info():
+    try:
+        if bot_instance:
+            # Create a task to get the webhook info
+            future = asyncio.run_coroutine_threadsafe(
+                bot_instance.get_webhook_info(),
+                bot_instance.client.loop
+            )
+            webhook_info = future.result(timeout=10)
+            
+            return jsonify({
+                'status': 'success',
+                'webhook_info': webhook_info
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Bot not initialized'
+            }), 500
+    except Exception as e:
+        logger.error(f"Error getting webhook info: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:

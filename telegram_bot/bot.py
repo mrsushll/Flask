@@ -94,9 +94,22 @@ class TelegramBot:
             "You can change your language with '/language'."
         ]
         
+    async def get_webhook_info(self):
+        """Get the current webhook information."""
+        try:
+            webhook_info = await self.client.send_request('getWebhookInfo')
+            logger.info(f"Current webhook info: {webhook_info}")
+            return webhook_info
+        except Exception as e:
+            logger.error(f"Error getting webhook info: {e}")
+            return None
+            
     async def start(self):
         """Start the bot and register all event handlers."""
         await self.client.start(bot_token=self.bot_token)
+        
+        # Check current webhook status
+        await self.get_webhook_info()
         
         # Register event handlers
         self.register_handlers()
@@ -104,7 +117,20 @@ class TelegramBot:
         # Set webhook if URL is provided
         webhook_url = os.environ.get('WEBHOOK_URL')
         if webhook_url:
+            # Make sure the webhook URL ends with /webhook
+            if not webhook_url.endswith('/'):
+                webhook_url += '/'
+            webhook_url += 'webhook'
+            
             logger.info(f"Setting webhook to {webhook_url}")
+            
+            # Set the webhook with Telegram API
+            await self.client.send_request('setWebhook', {
+                'url': webhook_url,
+                'max_connections': 100,
+                'allowed_updates': ['message', 'callback_query', 'inline_query']
+            })
+            
             # Initialize and start webhook handler
             self.webhook_handler = WebhookHandler(self)
             port = int(os.environ.get('PORT', 8080))
