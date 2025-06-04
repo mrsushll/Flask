@@ -10,7 +10,7 @@ import os
 from aiohttp import web
 from telethon import TelegramClient, events
 
-from utils.logger import setup_logger
+from telegram_bot.utils.logger import setup_logger
 
 # Configure logging
 logger = setup_logger('webhook_handler')
