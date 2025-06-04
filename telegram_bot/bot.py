@@ -10,8 +10,11 @@ import logging
 import os
 import random
 import re
+import socket
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
 
 import i18n
 from telethon import TelegramClient, events
@@ -820,8 +823,39 @@ class TelegramBot:
                 logger.error(f"Error in send_daily_tips: {e}")
                 await asyncio.sleep(3600)  # Retry after 1 hour on error
 
+# Health check server for Render
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'OK')
+        else:
+            self.send_response(404)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'Not Found')
+    
+    def log_message(self, format, *args):
+        # Suppress HTTP server logs
+        return
+
+def start_health_server(port=8080):
+    """Start a simple HTTP server for health checks."""
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    server_thread = Thread(target=server.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    logger.info(f"Health check server started on port {port}")
+
 async def main():
     """Main function to start the bot."""
+    # Start health check server for Render
+    port = int(os.environ.get('PORT', 8080))
+    start_health_server(port)
+    
+    # Start the bot
     bot = TelegramBot()
     await bot.start()
 

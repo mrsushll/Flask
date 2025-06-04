@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: chatgpt-claude-mistral-bot
+    env: python
+    buildCommand: pip install -r telegram_bot/requirements.txt
+    startCommand: cd telegram_bot && python bot.py
+    envVars:
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+    healthCheckPath: /health
+    healthCheckTimeout: 5
+    autoDeploy: true
