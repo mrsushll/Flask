@@ -161,6 +161,124 @@ class TelegramBot:
         # Easter egg commands
         self.client.add_event_handler(self.handle_easter_egg, events.NewMessage(pattern='/secret'))
     
+    async def process_update(self, update_data):
+        """Process an update from the webhook.
+        
+        Args:
+            update_data: The update data from Telegram
+        """
+        try:
+            logger.info(f"Processing update: {update_data}")
+            
+            # Process the update using Telethon's event system
+            # This is a simplified implementation and may need to be expanded
+            # based on the types of updates you want to handle
+            
+            if 'message' in update_data:
+                # Handle message updates
+                message_data = update_data['message']
+                chat_id = message_data.get('chat', {}).get('id')
+                text = message_data.get('text', '')
+                user_id = message_data.get('from', {}).get('id')
+                
+                if not user_id or not chat_id:
+                    logger.error(f"Missing user_id or chat_id in update: {update_data}")
+                    return
+                
+                # Check if user exists in database, if not create a new user
+                user = await self.db.get_user(user_id)
+                if not user:
+                    username = message_data.get('from', {}).get('username', "Unknown")
+                    await self.db.create_user(user_id, username)
+                    user = await self.db.get_user(user_id)
+                
+                if text.startswith('/'):
+                    # Handle commands
+                    command = text.split(' ')[0].lower()
+                    if command == '/start':
+                        await self.client.send_message(chat_id, "Welcome to the Telegram Bot!")
+                    elif command == '/help':
+                        await self.client.send_message(chat_id, "This is a help message.")
+                    # Add more command handlers as needed
+                else:
+                    # Handle regular chat messages by forwarding to the AI
+                    await self.handle_webhook_chat_message(user_id, chat_id, text, user)
+            
+            # Add handlers for other types of updates (callback_query, etc.)
+            
+        except Exception as e:
+            logger.error(f"Error processing update: {e}")
+    
+    async def handle_webhook_chat_message(self, user_id, chat_id, message, user):
+        """Handle chat messages from webhook."""
+        try:
+            # Check if user is banned
+            if user.get('is_banned', False):
+                await self.client.send_message(chat_id, "You have been banned from using this bot. Please contact the administrator.")
+                return
+            
+            # Check rate limits
+            if not self.rate_limiter.check_rate_limit(user_id):
+                await self.client.send_message(chat_id, i18n.t('rate_limit_exceeded', locale=user.get('language', 'en')))
+                return
+            
+            # Check if user has enough tokens
+            token_costs = await self.db.get_token_costs()
+            chat_cost = token_costs.get('chat', 1)
+            
+            if user.get('tokens', 0) < chat_cost:
+                await self.client.send_message(chat_id, i18n.t('no_tokens', locale=user.get('language', 'en')))
+                return
+            
+            # Get user's preferred AI model
+            model = user.get('preferred_model', 'gpt')
+            
+            # Get conversation history if memory is enabled
+            conversation_history = []
+            if user.get('memory_enabled', True):
+                conversation_history = user.get('conversation_history', [])
+            
+            # Process message with the appropriate AI model
+            if model == 'gpt':
+                response = await self.openai_handler.generate_response(message, conversation_history)
+            elif model == 'claude':
+                response = await self.claude_handler.generate_response(message, conversation_history)
+            elif model == 'mistral':
+                response = await self.mistral_handler.generate_response(message, conversation_history)
+            else:
+                # Default to GPT if model preference is invalid
+                response = await self.openai_handler.generate_response(message, conversation_history)
+            
+            # Update conversation history if memory is enabled
+            if user.get('memory_enabled', True):
+                conversation_history.append({'role': 'user', 'content': message})
+                conversation_history.append({'role': 'assistant', 'content': response})
+                
+                # Limit conversation history to last 10 exchanges (20 messages)
+                if len(conversation_history) > 20:
+                    conversation_history = conversation_history[-20:]
+                
+                # Update user's conversation history in database
+                await self.db.update_user(user_id, {
+                    'conversation_history': conversation_history
+                })
+            
+            # Deduct tokens and update last activity
+            await self.db.deduct_tokens(user_id, chat_cost)
+            await self.db.update_user(user_id, {
+                'last_activity': datetime.now()
+            })
+            
+            # Log the interaction
+            await self.db.log_interaction(user_id, 'chat', model, chat_cost)
+            
+            # Send the response
+            await self.client.send_message(chat_id, response)
+            
+        except Exception as e:
+            logger.error(f"Error processing webhook message: {e}")
+            await self.client.send_message(chat_id, i18n.t('error_processing', locale=user.get('language', 'en')))
+    
     async def handle_chat_message(self, event):
         """Handle regular chat messages from users."""
         user_id = event.sender_id

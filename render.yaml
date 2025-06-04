@@ -20,7 +20,7 @@ services:
       - key: MISTRAL_API_KEY
         sync: false
       - key: WEBHOOK_URL
-        value: https://robin-shopify.onrender.com/
+        value: https://flask-53nr.onrender.com/
     healthCheckPath: /health
     healthCheckTimeout: 5
     autoDeploy: true
