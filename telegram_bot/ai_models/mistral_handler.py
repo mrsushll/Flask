@@ -5,7 +5,7 @@ Handles interactions with Mistral AI models.
 
 import logging
 from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai.chat.models import UserMessage, SystemMessage, AssistantMessage
 
 logger = logging.getLogger('bot.ai.mistral')
 
@@ -39,19 +39,19 @@ class MistralHandler:
         
         # Add system message
         messages.append(
-            ChatMessage(role="system", content="You are Mistral AI, helping users in a Telegram bot called 'ChatGpt Claude Mistral'. Be helpful, concise, and friendly.")
+            SystemMessage(content="You are Mistral AI, helping users in a Telegram bot called 'ChatGpt Claude Mistral'. Be helpful, concise, and friendly.")
         )
         
         # Add conversation history
         for entry in conversation_history:
-            role = "user" if entry["role"] == "user" else "assistant"
-            messages.append(
-                ChatMessage(role=role, content=entry["content"])
-            )
+            if entry["role"] == "user":
+                messages.append(UserMessage(content=entry["content"]))
+            else:
+                messages.append(AssistantMessage(content=entry["content"]))
         
         # Add the current message
         messages.append(
-            ChatMessage(role="user", content=message)
+            UserMessage(content=message)
         )
         
         try:
