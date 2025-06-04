@@ -32,6 +32,7 @@ from handlers.admin_handler import AdminHandler
 from handlers.subscription_handler import SubscriptionHandler
 from utils.rate_limiter import RateLimiter
 from utils.logger import setup_logger
+from webhook_handler import WebhookHandler
 
 # Load environment variables
 load_dotenv()
@@ -104,9 +105,10 @@ class TelegramBot:
         webhook_url = os.environ.get('WEBHOOK_URL')
         if webhook_url:
             logger.info(f"Setting webhook to {webhook_url}")
-            # Note: Telethon doesn't have built-in webhook support
-            # This is a placeholder for webhook configuration
-            # You would need to implement a webhook handler or use the Telegram Bot API directly
+            # Initialize and start webhook handler
+            self.webhook_handler = WebhookHandler(self)
+            port = int(os.environ.get('PORT', 8080))
+            asyncio.create_task(self.webhook_handler.start(port=port))
         
         logger.info("Bot started successfully!")
         
@@ -868,4 +870,36 @@ async def main():
     await bot.start()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main())        async def process_update(self, update_data):
+            """Process an update from the webhook.
+            
+            Args:
+                update_data: The update data from Telegram
+            """
+            try:
+                # Process the update using Telethon's event system
+                # This is a simplified implementation and may need to be expanded
+                # based on the types of updates you want to handle
+                
+                if 'message' in update_data:
+                    # Handle message updates
+                    message_data = update_data['message']
+                    chat_id = message_data.get('chat', {}).get('id')
+                    text = message_data.get('text', '')
+                    
+                    if text.startswith('/'):
+                        # Handle commands
+                        command = text.split(' ')[0].lower()
+                        if command == '/start':
+                            await self.command_handler.start_command(message_data)
+                        elif command == '/help':
+                            await self.command_handler.help_command(message_data)
+                        # Add more command handlers as needed
+                    else:
+                        # Handle regular chat messages
+                        await self.handle_chat_message(message_data)
+                
+                # Add handlers for other types of updates (callback_query, etc.)
+                
+            except Exception as e:
+                logger.error(f"Error processing update: {e}")
