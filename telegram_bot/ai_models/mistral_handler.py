@@ -5,7 +5,7 @@ Handles interactions with Mistral AI models.
 
 import logging
 from mistralai.client import MistralClient
-from mistralai.chat.models import UserMessage, SystemMessage, AssistantMessage
+from mistralai import UserMessage, SystemMessage, AssistantMessage
 
 logger = logging.getLogger('bot.ai.mistral')
 
