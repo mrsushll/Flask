@@ -93,9 +93,23 @@ class CommandHandler:
         # Create settings message with inline keyboard
         settings_message = i18n.t('settings_message', locale=language)
         
+        # Add current settings to the message
+        memory_status = "Enabled" if user.get('memory_enabled', True) else "Disabled"
+        model = user.get('preferred_model', 'gpt').upper()
+        preferences = user.get('preferences', {})
+        image_style = preferences.get('image_style', 'realistic').capitalize()
+        
+        settings_message += f"\n\n**Current Settings:**\n"
+        settings_message += f"• Language: {language.upper()}\n"
+        settings_message += f"• AI Model: {model}\n"
+        settings_message += f"• Memory: {memory_status}\n"
+        settings_message += f"• Default Image Style: {image_style}\n"
+        
         keyboard = [
             [Button.inline(i18n.t('language_button', locale=language), b'language')],
             [Button.inline(i18n.t('model_button', locale=language), b'model')],
+            [Button.inline(i18n.t('memory_button', locale=language), b'memory')],
+            [Button.inline(i18n.t('styles_button', locale=language), b'styles')],
             [Button.inline(i18n.t('back_button', locale=language), b'back')]
         ]
         
