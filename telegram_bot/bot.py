@@ -22,17 +22,17 @@ from telethon.tl import types
 from telethon.tl.custom import Button
 
 # Import local modules
-from database.mongodb import MongoDB
-from ai_models.openai_handler import OpenAIHandler
-from ai_models.claude_handler import ClaudeHandler
-from ai_models.mistral_handler import MistralHandler
-from ai_models.image_generator import ImageGenerator
-from handlers.command_handler import CommandHandler
-from handlers.admin_handler import AdminHandler
-from handlers.subscription_handler import SubscriptionHandler
-from utils.rate_limiter import RateLimiter
-from utils.logger import setup_logger
-from webhook_handler import WebhookHandler
+from telegram_bot.database.mongodb import MongoDB
+from telegram_bot.ai_models.openai_handler import OpenAIHandler
+from telegram_bot.ai_models.claude_handler import ClaudeHandler
+from telegram_bot.ai_models.mistral_handler import MistralHandler
+from telegram_bot.ai_models.image_generator import ImageGenerator
+from telegram_bot.handlers.command_handler import CommandHandler
+from telegram_bot.handlers.admin_handler import AdminHandler
+from telegram_bot.handlers.subscription_handler import SubscriptionHandler
+from telegram_bot.utils.rate_limiter import RateLimiter
+from telegram_bot.utils.logger import setup_logger
+from telegram_bot.webhook_handler import WebhookHandler
 
 # Load environment variables
 load_dotenv()
