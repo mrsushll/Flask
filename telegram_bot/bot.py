@@ -58,7 +58,7 @@ class TelegramBot:
         self.admin_username = 'MLBOR'
         
         # Initialize the Telegram client
-        self.client = TelegramClient('chatgpt_claude_mistral_bot', self.api_id, self.api_hash)
+        self.client = TelegramClient('ravyn_ai_bot', self.api_id, self.api_hash)
         
         # Initialize database connection
         self.db = MongoDB(os.getenv('MONGODB_URI', 'mongodb+srv://mrsushi:7Fcbd82ae7@cluster0.zok5y5d.mongodb.net/'))
@@ -106,6 +106,13 @@ class TelegramBot:
             
     async def start(self):
         """Start the bot and register all event handlers."""
+        # Ensure we have a valid event loop
+        if not asyncio.get_event_loop().is_running():
+            logger.info("Creating new event loop")
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        # Start the client
         await self.client.start(bot_token=self.bot_token)
         
         # Check current webhook status
@@ -130,11 +137,6 @@ class TelegramBot:
                 'max_connections': 100,
                 'allowed_updates': ['message', 'callback_query', 'inline_query']
             })
-            
-            # Initialize and start webhook handler
-            self.webhook_handler = WebhookHandler(self)
-            port = int(os.environ.get('PORT', 8080))
-            asyncio.create_task(self.webhook_handler.start(port=port))
         
         logger.info("Bot started successfully!")
         
@@ -142,8 +144,8 @@ class TelegramBot:
         asyncio.create_task(self.check_monthly_bonuses())
         asyncio.create_task(self.send_daily_tips())
         
-        # Run the client until disconnected
-        await self.client.run_until_disconnected()
+        # We don't run the client until disconnected here, as we're using webhooks
+        # This allows the Flask app to handle the webhook requests
     
     def register_handlers(self):
         """Register all event handlers for the bot."""
@@ -197,8 +199,6 @@ class TelegramBot:
             logger.info(f"Processing update: {update_data}")
             
             # Process the update using Telethon's event system
-            # This is a simplified implementation and may need to be expanded
-            # based on the types of updates you want to handle
             
             if 'message' in update_data:
                 # Handle message updates
@@ -218,22 +218,105 @@ class TelegramBot:
                     await self.db.create_user(user_id, username)
                     user = await self.db.get_user(user_id)
                 
-                if text.startswith('/'):
+                if text and text.startswith('/'):
                     # Handle commands
                     command = text.split(' ')[0].lower()
                     if command == '/start':
-                        await self.client.send_message(chat_id, "Welcome to the Telegram Bot!")
+                        await self.client.send_message(chat_id, "Welcome to Ravyn.ai! I'm your advanced AI assistant powered by Mistral. How can I help you today?")
                     elif command == '/help':
-                        await self.client.send_message(chat_id, "This is a help message.")
-                    # Add more command handlers as needed
-                else:
+                        help_text = (
+                            "🤖 **Ravyn.ai Help** 🤖\n\n"
+                            "Here are the available commands:\n\n"
+                            "/start - Start the bot\n"
+                            "/help - Show this help message\n"
+                            "/settings - Configure your preferences\n"
+                            "/balance - Check your token balance\n"
+                            "/models - Change AI model\n"
+                            "/language - Change language\n"
+                            "/memory - Manage conversation memory\n"
+                            "/image - Generate an image\n"
+                            "/styles - View available image styles\n"
+                            "/history - View conversation history\n"
+                            "/feedback - Send feedback\n\n"
+                            "Just send a message to chat with me!"
+                        )
+                        await self.client.send_message(chat_id, help_text)
+                    elif command == '/settings':
+                        await self.command_handler.settings_command(None, user_id=user_id, chat_id=chat_id)
+                    elif command == '/balance':
+                        await self.command_handler.balance_command(None, user_id=user_id, chat_id=chat_id)
+                    elif command == '/models':
+                        await self.command_handler.models_command(None, user_id=user_id, chat_id=chat_id)
+                    elif command == '/language':
+                        await self.command_handler.language_command(None, user_id=user_id, chat_id=chat_id)
+                    elif command.startswith('/memory'):
+                        await self.handle_memory_command(None, user_id=user_id, chat_id=chat_id, text=text)
+                    elif command.startswith('/image'):
+                        await self.handle_image_command(None, user_id=user_id, chat_id=chat_id, text=text)
+                    elif command == '/styles':
+                        await self.handle_image_styles_command(None, user_id=user_id, chat_id=chat_id)
+                    elif command == '/history':
+                        await self.handle_history_command(None, user_id=user_id, chat_id=chat_id)
+                    elif command == '/feedback':
+                        await self.handle_feedback_command(None, user_id=user_id, chat_id=chat_id)
+                    else:
+                        await self.client.send_message(chat_id, "Unknown command. Type /help to see available commands.")
+                elif text:
                     # Handle regular chat messages by forwarding to the AI
                     await self.handle_webhook_chat_message(user_id, chat_id, text, user)
             
-            # Add handlers for other types of updates (callback_query, etc.)
+            # Handle callback queries (button presses)
+            elif 'callback_query' in update_data:
+                callback_data = update_data['callback_query']
+                user_id = callback_data.get('from', {}).get('id')
+                chat_id = callback_data.get('message', {}).get('chat', {}).get('id')
+                data = callback_data.get('data', '')
+                
+                if not user_id or not chat_id or not data:
+                    logger.error(f"Missing data in callback_query: {update_data}")
+                    return
+                
+                # Process the callback data
+                await self.process_callback_data(user_id, chat_id, data)
             
         except Exception as e:
             logger.error(f"Error processing update: {e}")
+            
+    async def process_callback_data(self, user_id, chat_id, data):
+        """Process callback data from button presses."""
+        try:
+            # Get user from database
+            user = await self.db.get_user(user_id)
+            if not user:
+                logger.error(f"User {user_id} not found in database")
+                return
+            
+            # Handle different callback types
+            if data.startswith('model_'):
+                # Change AI model
+                model = data.replace('model_', '')
+                await self.db.update_user(user_id, {'preferred_model': model})
+                await self.client.send_message(chat_id, f"AI model changed to {model.upper()}")
+            
+            elif data.startswith('language_'):
+                # Change language
+                language = data.replace('language_', '')
+                await self.db.update_user(user_id, {'language': language})
+                await self.client.send_message(chat_id, f"Language changed to {language.upper()}")
+            
+            elif data == 'subscribe':
+                # Handle subscription
+                await self.subscription_handler.show_subscription_options(user_id, chat_id)
+            
+            elif data.startswith('feedback_'):
+                # Handle feedback
+                feedback_type = data.split('_')[1]
+                message_id = int(data.split('_')[2])
+                await self.db.log_feedback(user_id, message_id, feedback_type)
+                await self.client.send_message(chat_id, f"Thank you for your feedback!")
+            
+        except Exception as e:
+            logger.error(f"Error processing callback data: {e}")
     
     async def handle_webhook_chat_message(self, user_id, chat_id, message, user):
         """Handle chat messages from webhook."""
@@ -401,32 +484,50 @@ class TelegramBot:
                 logger.error(f"Error processing message: {e}")
                 await event.respond(i18n.t('error_processing', locale=user.get('language', 'en')))
     
-    async def handle_image_command(self, event):
+    async def handle_image_command(self, event=None, user_id=None, chat_id=None, text=None):
         """Handle image generation commands."""
-        user_id = event.sender_id
+        # Handle both direct events and webhook updates
+        if event:
+            user_id = event.sender_id
+            chat_id = event.chat_id
+            text = event.message.text
         
         # Extract the prompt from the message
-        prompt = event.message.text.replace('/image', '', 1).strip()
+        prompt = text.replace('/image', '', 1).strip()
         
         if not prompt:
-            await event.respond("Please provide a description for the image you want to generate.\n\nExample: `/image a beautiful sunset over mountains`")
+            message = "Please provide a description for the image you want to generate.\n\nExample: `/image a beautiful sunset over mountains`"
+            if event:
+                await event.respond(message)
+            else:
+                await self.client.send_message(chat_id, message)
             return
         
         # Check if user exists in database, if not create a new user
         user = await self.db.get_user(user_id)
         if not user:
-            username = event.sender.username or "Unknown"
+            username = "Unknown"
+            if event and hasattr(event, 'sender') and hasattr(event.sender, 'username'):
+                username = event.sender.username or "Unknown"
             await self.db.create_user(user_id, username)
             user = await self.db.get_user(user_id)
         
         # Check if user is banned
         if user.get('is_banned', False):
-            await event.respond("You have been banned from using this bot. Please contact the administrator.")
+            message = "You have been banned from using this bot. Please contact the administrator."
+            if event:
+                await event.respond(message)
+            else:
+                await self.client.send_message(chat_id, message)
             return
         
         # Check rate limits
         if not self.rate_limiter.check_rate_limit(user_id):
-            await event.respond(i18n.t('rate_limit_exceeded', locale=user.get('language', 'en')))
+            message = i18n.t('rate_limit_exceeded', locale=user.get('language', 'en'))
+            if event:
+                await event.respond(message)
+            else:
+                await self.client.send_message(chat_id, message)
             return
         
         # Check if user has enough tokens
@@ -437,10 +538,11 @@ class TelegramBot:
             keyboard = [
                 [Button.inline(i18n.t('subscribe_button', locale=user.get('language', 'en')), b'subscribe')]
             ]
-            await event.respond(
-                i18n.t('no_tokens', locale=user.get('language', 'en')),
-                buttons=keyboard
-            )
+            message = i18n.t('no_tokens', locale=user.get('language', 'en'))
+            if event:
+                await event.respond(message, buttons=keyboard)
+            else:
+                await self.client.send_message(chat_id, message, buttons=keyboard)
             return
         
         # Get user preferences
@@ -543,14 +645,20 @@ class TelegramBot:
         
         await event.respond(styles_message, buttons=keyboard)
     
-    async def handle_memory_command(self, event):
+    async def handle_memory_command(self, event=None, user_id=None, chat_id=None, text=None):
         """Handle memory-related commands."""
-        user_id = event.sender_id
+        # Handle both direct events and webhook updates
+        if event:
+            user_id = event.sender_id
+            chat_id = event.chat_id
+            text = event.message.text
         
         # Check if user exists in database, if not create a new user
         user = await self.db.get_user(user_id)
         if not user:
-            username = event.sender.username or "Unknown"
+            username = "Unknown"
+            if event and hasattr(event, 'sender') and hasattr(event.sender, 'username'):
+                username = event.sender.username or "Unknown"
             await self.db.create_user(user_id, username)
             user = await self.db.get_user(user_id)
         
@@ -558,20 +666,23 @@ class TelegramBot:
         language = user.get('language', 'en')
         
         # Parse the command
-        command_parts = event.message.text.split()
+        command_parts = text.split()
         if len(command_parts) < 2:
             # Show memory status and options
             memory_enabled = user.get('memory_enabled', True)
             status = "enabled" if memory_enabled else "disabled"
             
             memory_message = f"🧠 **Memory System**\n\nMemory is currently **{status}**.\n\n"
-            memory_message += "With memory enabled, the bot remembers your conversation history and can refer to previous messages.\n\n"
+            memory_message += "With memory enabled, Ravyn.ai remembers your conversation history and can refer to previous messages.\n\n"
             memory_message += "Commands:\n"
             memory_message += "• `/memory toggle` - Toggle memory on/off\n"
             memory_message += "• `/memory reset` - Clear your conversation history\n"
             memory_message += "• `/memory status` - Check memory status"
             
-            await event.respond(memory_message)
+            if event:
+                await event.respond(memory_message)
+            else:
+                await self.client.send_message(chat_id, memory_message)
             return
         
         action = command_parts[1].lower()
@@ -580,15 +691,25 @@ class TelegramBot:
             # Toggle memory on/off
             new_state = await self.db.toggle_user_memory(user_id)
             status = "enabled" if new_state else "disabled"
-            await event.respond(f"Memory has been {status}.")
+            message = f"Memory has been {status}."
+            
+            if event:
+                await event.respond(message)
+            else:
+                await self.client.send_message(chat_id, message)
             
         elif action == "reset":
             # Reset conversation history
             success = await self.db.reset_user_memory(user_id)
             if success:
-                await event.respond("Your conversation history has been cleared.")
+                message = "Your conversation history has been cleared."
             else:
-                await event.respond("Failed to clear your conversation history. Please try again later.")
+                message = "Failed to clear your conversation history. Please try again later."
+                
+            if event:
+                await event.respond(message)
+            else:
+                await self.client.send_message(chat_id, message)
                 
         elif action == "status":
             # Show memory status
@@ -599,7 +720,12 @@ class TelegramBot:
             conversation_history = user.get('conversation_history', [])
             message_count = len(conversation_history) // 2  # Each exchange has 2 messages (user + assistant)
             
-            await event.respond(f"Memory is currently **{status}**.\n\nYou have {message_count} exchanges in your conversation history.")
+            message = f"Memory is currently **{status}**.\n\nYou have {message_count} exchanges in your conversation history."
+            
+            if event:
+                await event.respond(message)
+            else:
+                await self.client.send_message(chat_id, message)
     
     async def handle_history_command(self, event):
         """Handle token usage history command."""
@@ -932,50 +1058,60 @@ class TelegramBot:
     
     async def check_monthly_bonuses(self):
         """Check and distribute monthly bonuses to subscribers."""
-        while True:
-            try:
-                await self.subscription_handler.check_monthly_bonuses()
-                # Check once a day
-                await asyncio.sleep(86400)  # 24 hours
-            except Exception as e:
-                logger.error(f"Error in check_monthly_bonuses: {e}")
-                await asyncio.sleep(3600)  # Retry after 1 hour on error
+        try:
+            logger.info("Starting monthly bonus check task")
+            while True:
+                try:
+                    await self.subscription_handler.check_monthly_bonuses()
+                    # Check once a day
+                    await asyncio.sleep(86400)  # 24 hours
+                except Exception as e:
+                    logger.error(f"Error in check_monthly_bonuses: {e}")
+                    await asyncio.sleep(3600)  # Retry after 1 hour on error
+        except Exception as e:
+            logger.error(f"Fatal error in check_monthly_bonuses task: {e}")
+            # Don't crash the bot if this task fails
     
     async def send_daily_tips(self):
         """Send daily tips to active users."""
-        while True:
-            try:
-                # Get active users (active in the last 7 days)
-                active_users = await self.db.get_all_users()
-                active_users = [user for user in active_users if user.get('last_activity') and 
-                               (datetime.now() - user.get('last_activity')).days < 7]
-                
-                if active_users:
-                    # Select a random tip
-                    tip = random.choice(self.daily_tips)
+        try:
+            logger.info("Starting daily tips task")
+            while True:
+                try:
+                    # Get active users (active in the last 7 days)
+                    active_users = await self.db.get_all_users()
+                    active_users = [user for user in active_users if user.get('last_activity') and 
+                                  (datetime.now() - user.get('last_activity')).days < 7]
                     
-                    # Send the tip to active users
-                    for user in active_users:
-                        try:
-                            # Get user's language
-                            language = user.get('language', 'en')
-                            
-                            # Create tip message
-                            tip_message = f"💡 **Daily Tip**\n\n{tip}"
-                            
-                            # Send the tip
-                            await self.client.send_message(user['user_id'], tip_message)
-                            
-                            # Add a small delay between messages to avoid rate limits
-                            await asyncio.sleep(0.5)
-                        except Exception as e:
-                            logger.error(f"Error sending daily tip to user {user['user_id']}: {e}")
-                
-                # Send tips once a day at a random time
-                await asyncio.sleep(86400 + random.randint(-3600, 3600))  # 24 hours ± 1 hour
-            except Exception as e:
-                logger.error(f"Error in send_daily_tips: {e}")
-                await asyncio.sleep(3600)  # Retry after 1 hour on error
+                    if active_users:
+                        # Select a random tip
+                        tip = random.choice(self.daily_tips)
+                        
+                        # Send the tip to active users
+                        for user in active_users:
+                            try:
+                                # Get user's language
+                                language = user.get('language', 'en')
+                                
+                                # Create tip message
+                                tip_message = f"💡 **Daily Tip from Ravyn.ai**\n\n{tip}"
+                                
+                                # Send the tip
+                                await self.client.send_message(user['user_id'], tip_message)
+                                
+                                # Add a small delay between messages to avoid rate limits
+                                await asyncio.sleep(0.5)
+                            except Exception as e:
+                                logger.error(f"Error sending daily tip to user {user['user_id']}: {e}")
+                    
+                    # Send tips once a day at a random time
+                    await asyncio.sleep(86400 + random.randint(-3600, 3600))  # 24 hours +/- 1 hour
+                except Exception as e:
+                    logger.error(f"Error in send_daily_tips: {e}")
+                    await asyncio.sleep(3600)  # Retry after 1 hour on error
+        except Exception as e:
+            logger.error(f"Fatal error in send_daily_tips task: {e}")
+            # Don't crash the bot if this task fails
 
 # Health check server for Render
 class HealthCheckHandler(BaseHTTPRequestHandler):

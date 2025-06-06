@@ -1,4 +1,4 @@
-# ChatGPT Claude Mistral Telegram Bot
+# Ravyn.ai Telegram Bot
 
 A powerful Telegram bot that integrates multiple AI models for chat and image generation.
 
